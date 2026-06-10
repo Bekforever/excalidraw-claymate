@@ -60,6 +60,7 @@ type Props = {
   ) => void;
   moveToScene: (index: number) => void;
   addScene: (optionalDrawing?: Drawing) => void;
+  clearScenes: () => void;
   autoAddSceneUnit?: number;
 };
 
@@ -79,12 +80,17 @@ const Claymate = ({
   updateScenes,
   moveToScene,
   addScene,
+  clearScenes,
   autoAddSceneUnit = 0.1,
 }: Props) => {
   const [previewState, setPreviewState] = useState<PreviewState>({
     open: false,
     url: '',
   });
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] =
+    useState(false);
   const [showAutoSceneConfig, setShowAutoSceneConfig] = useState(false);
   const [autoSceneConfig, setAutoSceneConfig] = useState<AutoSceneConfig>({
     enabled: false,
@@ -199,6 +205,116 @@ const Claymate = ({
     );
   };
 
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const isSingleEmptyScene =
+    scenes.length === 0 ||
+    (scenes.length === 1 && isEmpty(scenes[0].drawing.elements));
+
+  const deleteSelected = useCallback(() => {
+    if (selectedIds.size === 0) return;
+
+    if (selectedIds.size === scenes.length) {
+      clearScenes();
+      setSelectedIds(new Set());
+      return;
+    }
+
+    const remaining = scenes.filter((scene) => !selectedIds.has(scene.id));
+
+    let nextSelectedScene: { index: number; drawing: Drawing } | undefined;
+    if (currentIndex !== undefined) {
+      const currentScene = scenes[currentIndex];
+      let targetScene: Scene | undefined;
+      if (currentScene && !selectedIds.has(currentScene.id)) {
+        targetScene = currentScene;
+      } else {
+        // nearest surviving scene before the current one, else the first remaining
+        targetScene = [...scenes.slice(0, currentIndex)]
+          .reverse()
+          .find((scene) => !selectedIds.has(scene.id));
+        targetScene = targetScene ?? remaining[0];
+      }
+      const nextIndex = remaining.findIndex(
+        (scene) => scene.id === targetScene?.id,
+      );
+      nextSelectedScene = {
+        index: nextIndex,
+        drawing: remaining[nextIndex].drawing,
+      };
+    }
+
+    updateScenes(
+      (prev) => prev.filter((scene) => !selectedIds.has(scene.id)),
+      nextSelectedScene,
+    );
+    setSelectedIds(new Set());
+  }, [selectedIds, scenes, currentIndex, clearScenes, updateScenes]);
+
+  // Keep the selection in sync with the scenes that still exist.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const existingIds = new Set(scenes.map((scene) => scene.id));
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (existingIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [scenes]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      // Don't interfere with deleting elements inside the Excalidraw canvas.
+      if (
+        typeof target.closest === 'function' &&
+        target.closest('.excalidraw')
+      ) {
+        return;
+      }
+      // Don't interfere with text entry or select elements.
+      if (
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      )
+        return;
+      if (target.tagName === 'INPUT') {
+        const type = (target as HTMLInputElement).type;
+        if (type !== 'checkbox' && type !== 'radio' && type !== 'button') {
+          return;
+        }
+      }
+      deleteSelected();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [deleteSelected]);
+
+  const confirmClearAll = () => {
+    clearScenes();
+    setSelectedIds(new Set());
+    setShowClearConfirm(false);
+  };
+
   useEffect(() => {
     if (autoSceneConfig.enabled) {
       autoSceneInterval.current = setInterval(
@@ -238,6 +354,14 @@ const Claymate = ({
               data-testid={testId}
             >
               <Preview scene={scene} darkMode={darkMode} />
+              <input
+                type="checkbox"
+                className="Claymate-select"
+                aria-label="Select scene"
+                checked={selectedIds.has(scene.id)}
+                onChange={() => toggleSelected(scene.id)}
+                onClick={(event) => event.stopPropagation()}
+              />
               <button
                 type="button"
                 className="Claymate-delete"
@@ -337,13 +461,30 @@ const Claymate = ({
             Export HTML
           </button>
         </div>
-        <button
-          type="button"
-          onClick={reverseOrder}
-          disabled={scenes.length <= 1}
-        >
-          Reverse order
-        </button>
+        <div>
+          <button
+            type="button"
+            onClick={reverseOrder}
+            disabled={scenes.length <= 1}
+          >
+            Reverse order
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowClearConfirm(true)}
+            disabled={isSingleEmptyScene}
+          >
+            Clear all
+          </button>
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteSelectedConfirm(true)}
+            >
+              Delete selected ({selectedIds.size})
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Preview GIF Dialog */}
@@ -363,20 +504,57 @@ const Claymate = ({
         </Dialog>
       )}
 
-      {/* Preview GIF Dialog */}
-      {previewState.open && (
+      {/* Clear all confirmation Dialog */}
+      {showClearConfirm && (
         <Dialog
-          open={previewState.open}
-          title="Preview GIF"
-          handleClose={closePreview}
+          open={showClearConfirm}
+          title="Clear all scenes?"
+          handleClose={() => setShowClearConfirm(false)}
+          actions={
+            <>
+              <button type="button" onClick={() => setShowClearConfirm(false)}>
+                Cancel
+              </button>
+              <button type="button" onClick={confirmClearAll}>
+                Delete
+              </button>
+            </>
+          }
         >
-          <div className="preview-gif-wrapper">
-            <img
-              src={previewState.url}
-              alt="Preview GIF"
-              className="preview-gif"
-            />
-          </div>
+          <p>This removes every scene and leaves a single empty scene.</p>
+        </Dialog>
+      )}
+
+      {/* Delete selected confirmation Dialog */}
+      {showDeleteSelectedConfirm && (
+        <Dialog
+          open={showDeleteSelectedConfirm}
+          title={`Delete ${selectedIds.size} scene${selectedIds.size > 1 ? 's' : ''}?`}
+          handleClose={() => setShowDeleteSelectedConfirm(false)}
+          actions={
+            <>
+              <button
+                type="button"
+                onClick={() => setShowDeleteSelectedConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteSelected();
+                  setShowDeleteSelectedConfirm(false);
+                }}
+              >
+                Delete
+              </button>
+            </>
+          }
+        >
+          <p>
+            Delete {selectedIds.size} selected scene
+            {selectedIds.size > 1 ? 's' : ''}?
+          </p>
         </Dialog>
       )}
     </div>

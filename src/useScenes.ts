@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types';
 import type { AppState, BinaryFiles } from '@excalidraw/excalidraw/types';
+import { nanoid } from 'nanoid';
 import { createScene } from './creation';
 import type { Drawing, Scene } from './types';
 import { loadStorage, saveStorage } from './persistence';
@@ -141,6 +142,31 @@ export const useScenes = () => {
     [updateScenes, scenes, drawing],
   );
 
+  const clearScenes = useCallback(() => {
+    const appState =
+      drawing?.appState ??
+      (currentIndex !== undefined
+        ? scenes[currentIndex]?.drawing.appState
+        : scenes[0]?.drawing.appState);
+    if (!appState) {
+      return;
+    }
+    const blankDrawing: Drawing = { elements: [], appState, files: null };
+    (async () => {
+      const scene = await createScene(blankDrawing);
+      // createScene can return undefined if canvas has zero dimensions.
+      // Fall back to a minimal scene so clearScenes never silently no-ops.
+      const finalScene = scene ?? {
+        id: nanoid(),
+        width: 1,
+        height: 1,
+        imageData: new ImageData(1, 1),
+        drawing: blankDrawing,
+      };
+      updateScenes(() => [finalScene], { index: 0, drawing: blankDrawing });
+    })();
+  }, [drawing, currentIndex, scenes, updateScenes]);
+
   useEffect(() => {
     if (initialisedRef.current === Initialisation.NotStarted) {
       initialisedRef.current = Initialisation.Started;
@@ -167,6 +193,7 @@ export const useScenes = () => {
   return {
     moveToScene,
     addScene,
+    clearScenes,
     onChange,
     drawingVersion,
     currentIndex,
