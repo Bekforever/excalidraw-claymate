@@ -15,6 +15,7 @@ enum Initialisation {
 
 export const useScenes = () => {
   const initialisedRef = useRef<Initialisation>(Initialisation.NotStarted);
+  const generationRef = useRef(0);
   const [drawingVersion, setDrawingVersion] = useState(0);
   const [currentIndex, setCurrentIndex] = useState<number | undefined>(0);
   const [scenes, setScenes] = useState<Scene[]>([]);
@@ -50,6 +51,7 @@ export const useScenes = () => {
   const updateCurrentScene = useCallback(
     (index: number, drawing: Drawing) => {
       if (index != null && drawing) {
+        const generation = generationRef.current;
         (async () => {
           const scene = await createScene(
             drawing,
@@ -60,6 +62,7 @@ export const useScenes = () => {
                   height: requiredHeight,
                 },
           );
+          if (generationRef.current !== generation) return;
           if (scene) {
             setScenes((prev) => {
               const result = [...prev];
@@ -122,6 +125,7 @@ export const useScenes = () => {
     (optionalDrawing?: Drawing) => {
       const drawingToAdd = optionalDrawing || drawing;
       if (drawingToAdd) {
+        const generation = generationRef.current;
         (async () => {
           const scene = await createScene(
             drawingToAdd,
@@ -130,6 +134,7 @@ export const useScenes = () => {
               height: scenes[0].height,
             },
           );
+          if (generationRef.current !== generation) return;
           if (scene) {
             updateScenes((prev) => [...prev, scene], {
               index: scenes.length,
@@ -143,6 +148,7 @@ export const useScenes = () => {
   );
 
   const clearScenes = useCallback(() => {
+    generationRef.current += 1;
     const appState =
       drawing?.appState ??
       (currentIndex !== undefined
@@ -163,9 +169,18 @@ export const useScenes = () => {
         imageData: new ImageData(1, 1),
         drawing: blankDrawing,
       };
-      updateScenes(() => [finalScene], { index: 0, drawing: blankDrawing });
+      // Second increment: cancels any updateCurrentScene calls that were
+      // triggered by onChange during the createScene await above. Those
+      // calls captured the post-first-increment generation and would pass
+      // the stale-check, but they carry the old currentIndex and would
+      // append/overwrite scenes after we reset to a single blank scene.  
+      generationRef.current += 1;
+      setScenes(() => [finalScene]);
+      setCurrentIndex(0);
+      setDrawing(blankDrawing);
+      setDrawingVersion((v) => v + 1);
     })();
-  }, [drawing, currentIndex, scenes, updateScenes]);
+  }, [drawing, currentIndex, scenes]);
 
   useEffect(() => {
     if (initialisedRef.current === Initialisation.NotStarted) {

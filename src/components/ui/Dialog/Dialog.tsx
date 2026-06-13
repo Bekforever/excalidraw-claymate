@@ -27,9 +27,6 @@ export const Dialog = ({
           {headerActions && (
             <div className="header-actions">{headerActions}</div>
           )}
-          <button className="close-button" onClick={handleClose}>
-            X
-          </button>
         </div>
 
         {(dividers || dividerTop) && <div className="divider" />}

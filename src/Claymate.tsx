@@ -135,37 +135,6 @@ const Claymate = ({
     });
   };
 
-  const deleteScene = (id: string) => {
-    const deletedSceneIndex = scenes.findIndex((item) => item.id === id);
-    if (deletedSceneIndex < 0) return;
-    let nextSelectedScene = undefined;
-
-    if (currentIndex !== undefined) {
-      const remainingScenesCount = scenes.length - 1;
-      const nextIndex =
-        currentIndex === remainingScenesCount ||
-        currentIndex > deletedSceneIndex
-          ? currentIndex - 1
-          : currentIndex;
-
-      const nextDrawingIndex =
-        deletedSceneIndex <= currentIndex &&
-        remainingScenesCount !== deletedSceneIndex
-          ? nextIndex + 1
-          : nextIndex;
-
-      nextSelectedScene = {
-        index: nextIndex,
-        drawing: scenes[nextDrawingIndex].drawing,
-      };
-    }
-
-    updateScenes((prev) => {
-      const next = [...prev];
-      next.splice(deletedSceneIndex, 1);
-      return next;
-    }, nextSelectedScene);
-  };
 
   const moveLeft = (id: string) => {
     const index = scenes.findIndex((item) => item.id === id);
@@ -303,11 +272,13 @@ const Claymate = ({
           return;
         }
       }
-      deleteSelected();
+      if (selectedIds.size > 0) {
+        setShowDeleteSelectedConfirm(true);
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [deleteSelected]);
+  }, [selectedIds.size]);
 
   const confirmClearAll = () => {
     clearScenes();
@@ -362,18 +333,6 @@ const Claymate = ({
                 onChange={() => toggleSelected(scene.id)}
                 onClick={(event) => event.stopPropagation()}
               />
-              <button
-                type="button"
-                className="Claymate-delete"
-                aria-label="Delete"
-                disabled={scenes.length <= 1}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  deleteScene(scene.id);
-                }}
-              >
-                &#x2716;
-              </button>
               <button
                 type="button"
                 className="Claymate-left"
@@ -481,7 +440,7 @@ const Claymate = ({
               type="button"
               onClick={() => setShowDeleteSelectedConfirm(true)}
             >
-              Delete selected ({selectedIds.size})
+              Clear selected ({selectedIds.size})
             </button>
           )}
         </div>
@@ -516,7 +475,7 @@ const Claymate = ({
                 Cancel
               </button>
               <button type="button" onClick={confirmClearAll}>
-                Delete
+                Clear
               </button>
             </>
           }
@@ -525,11 +484,11 @@ const Claymate = ({
         </Dialog>
       )}
 
-      {/* Delete selected confirmation Dialog */}
+      {/* Clear selected confirmation Dialog */}
       {showDeleteSelectedConfirm && (
         <Dialog
           open={showDeleteSelectedConfirm}
-          title={`Delete ${selectedIds.size} scene${selectedIds.size > 1 ? 's' : ''}?`}
+          title={`Clear ${selectedIds.size} scene${selectedIds.size > 1 ? 's' : ''}?`}
           handleClose={() => setShowDeleteSelectedConfirm(false)}
           actions={
             <>
@@ -546,13 +505,13 @@ const Claymate = ({
                   setShowDeleteSelectedConfirm(false);
                 }}
               >
-                Delete
+                Clear
               </button>
             </>
           }
         >
           <p>
-            Delete {selectedIds.size} selected scene
+            Clear {selectedIds.size} selected scene
             {selectedIds.size > 1 ? 's' : ''}?
           </p>
         </Dialog>

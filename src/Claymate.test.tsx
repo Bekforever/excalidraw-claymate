@@ -58,11 +58,14 @@ test('clicking a scene checkbox does not navigate to that scene', () => {
   expect(utils.props.moveToScene).not.toHaveBeenCalled();
 });
 
-test('Delete removes only the selected scenes', () => {
+test('Delete opens confirmation dialog and removes selected scenes on confirm', () => {
   const utils = renderClaymate();
   selectScene(utils, 1);
 
   fireEvent.keyDown(document.body, { key: 'Delete' });
+
+  expect(utils.props.updateScenes).not.toHaveBeenCalled();
+  fireEvent.click(utils.getByText('Clear'));
 
   expect(utils.props.updateScenes).toHaveBeenCalledTimes(1);
   expect(utils.props.clearScenes).not.toHaveBeenCalled();
@@ -71,12 +74,15 @@ test('Delete removes only the selected scenes', () => {
   expect(result).toEqual(['a', 'c']);
 });
 
-test('Backspace removes only the selected scenes', () => {
+test('Backspace opens confirmation dialog and removes selected scenes on confirm', () => {
   const utils = renderClaymate();
   selectScene(utils, 0);
   selectScene(utils, 2);
 
   fireEvent.keyDown(document.body, { key: 'Backspace' });
+
+  expect(utils.props.updateScenes).not.toHaveBeenCalled();
+  fireEvent.click(utils.getByText('Clear'));
 
   expect(utils.props.updateScenes).toHaveBeenCalledTimes(1);
   const updater = (utils.props.updateScenes as any).mock.calls[0][0];
@@ -84,13 +90,16 @@ test('Backspace removes only the selected scenes', () => {
   expect(result).toEqual(['b']);
 });
 
-test('selecting all scenes and pressing Delete clears to one empty scene', () => {
+test('selecting all scenes and pressing Delete shows confirmation before clearing', () => {
   const utils = renderClaymate();
   selectScene(utils, 0);
   selectScene(utils, 1);
   selectScene(utils, 2);
 
   fireEvent.keyDown(document.body, { key: 'Delete' });
+
+  expect(utils.props.clearScenes).not.toHaveBeenCalled();
+  fireEvent.click(utils.getByText('Clear'));
 
   expect(utils.props.clearScenes).toHaveBeenCalledTimes(1);
   expect(utils.props.updateScenes).not.toHaveBeenCalled();
@@ -135,7 +144,7 @@ test('Clear all button opens a confirmation dialog and clears on confirm', () =>
   fireEvent.click(utils.getByText('Clear all'));
 
   // Confirm button in the dialog
-  fireEvent.click(utils.getByText('Delete'));
+  fireEvent.click(utils.getByText('Clear'));
 
   expect(utils.props.clearScenes).toHaveBeenCalledTimes(1);
 });
@@ -161,6 +170,7 @@ test('Delete with currentIndex undefined removes selected scenes without crash',
   selectScene(utils, 1);
 
   fireEvent.keyDown(document.body, { key: 'Delete' });
+  fireEvent.click(utils.getByText('Clear'));
 
   expect(utils.props.updateScenes).toHaveBeenCalledTimes(1);
   const updater = (utils.props.updateScenes as any).mock.calls[0][0];

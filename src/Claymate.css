@@ -106,7 +106,6 @@
   margin: 0;
 }
 
-.Claymate-scene:hover .Claymate-delete,
 .Claymate-scene:hover .Claymate-left,
 .Claymate-scene:hover .Claymate-right {
   display: block;
@@ -121,16 +120,6 @@
   margin: 0;
   cursor: pointer;
   z-index: 1;
-}
-
-.Claymate-delete {
-  display: none;
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 24px;
-  height: 24px;
-  padding: 0;
 }
 
 .Claymate-left {
