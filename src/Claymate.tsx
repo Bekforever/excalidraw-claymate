@@ -135,7 +135,6 @@ const Claymate = ({
     });
   };
 
-
   const moveLeft = (id: string) => {
     const index = scenes.findIndex((item) => item.id === id);
     updateScenes(
