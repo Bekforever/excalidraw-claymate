@@ -158,28 +158,17 @@ export const useScenes = () => {
       return;
     }
     const blankDrawing: Drawing = { elements: [], appState, files: null };
-    (async () => {
-      const scene = await createScene(blankDrawing);
-      // createScene can return undefined if canvas has zero dimensions.
-      // Fall back to a minimal scene so clearScenes never silently no-ops.
-      const finalScene = scene ?? {
-        id: nanoid(),
-        width: 1,
-        height: 1,
-        imageData: new ImageData(1, 1),
-        drawing: blankDrawing,
-      };
-      // Second increment: cancels any updateCurrentScene calls that were
-      // triggered by onChange during the createScene await above. Those
-      // calls captured the post-first-increment generation and would pass
-      // the stale-check, but they carry the old currentIndex and would
-      // append/overwrite scenes after we reset to a single blank scene.  
-      generationRef.current += 1;
-      setScenes(() => [finalScene]);
-      setCurrentIndex(0);
-      setDrawing(blankDrawing);
-      setDrawingVersion((v) => v + 1);
-    })();
+    const finalScene = {
+      id: nanoid(),
+      width: 1,
+      height: 1,
+      imageData: new ImageData(1, 1),
+      drawing: blankDrawing,
+    };
+    setScenes(() => [finalScene]);
+    setCurrentIndex(0);
+    setDrawing(blankDrawing);
+    setDrawingVersion((v) => v + 1);
   }, [drawing, currentIndex, scenes]);
 
   useEffect(() => {
