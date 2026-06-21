@@ -20,8 +20,8 @@ export const Dialog = ({
   if (!open) return null;
   const modalClassname = `claymate-modal ${className} ${position}`;
   return createPortal(
-    <div className="claymate-modal-wrapper">
-      <div className={modalClassname}>
+    <div className="claymate-modal-wrapper" onClick={handleClose}>
+      <div className={modalClassname} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="typography">{title}</h2>
           {headerActions && (
