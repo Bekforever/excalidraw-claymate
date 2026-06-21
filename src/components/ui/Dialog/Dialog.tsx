@@ -20,8 +20,13 @@ export const Dialog = ({
   if (!open) return null;
   const modalClassname = `claymate-modal ${className} ${position}`;
   return createPortal(
-    <div className="claymate-modal-wrapper" onClick={handleClose}>
-      <div className={modalClassname} onClick={(e) => e.stopPropagation()}>
+    <div
+      className="claymate-modal-wrapper"
+      role="presentation"
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
+      onKeyDown={(e) => e.key === 'Escape' && handleClose()}
+    >
+      <div className={modalClassname} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-header">
           <h2 className="typography">{title}</h2>
           {headerActions && (
